@@ -11,8 +11,7 @@ CREATE TABLE Phone (
 CREATE TABLE Inventory (
     id INT PRIMARY KEY,
     phone_type_id INT,
-    available BYTE,
-    FOREIGN KEY (phone_type_id) REFERENCES Phone(id)
+    FOREIGN KEY (phone_type_id) REFERENCES Phone(id),
 );
 
 CREATE TABLE Booking (
@@ -23,34 +22,31 @@ CREATE TABLE Booking (
     FOREIGN KEY (inventory_id) REFERENCES Inventory(id)
 );
 
-INSERT INTO
-    Phone (
-        id,
-        model,
-        ext_ref,
-        technology,
-        g2_bands,
-        g3_bands,
-        g4_bands
-    )
-VALUES
-    (
-        1,
-        'Samsung Galaxy',
-        'SG001',
-        '5G',
-        'GSM',
-        'UMTS',
-        'LTE'
-    );
-
-INSERT INTO
-    Inventory (id, phone_type_id, available)
-VALUES
-    (1, 1, 1);
-
-commit;
-
+-- INSERT INTO
+--     Phone (
+--         id,
+--         model,
+--         ext_ref,
+--         technology,
+--         g2_bands,
+--         g3_bands,
+--         g4_bands
+--     )
+-- VALUES
+--     (
+--         1,
+--         'Samsung Galaxy',
+--         'SG001',
+--         '5G',
+--         'GSM',
+--         'UMTS',
+--         'LTE'
+--     );
+-- INSERT INTO
+--     Inventory (id, phone_type_id, available)
+-- VALUES
+--     (1, 1, 1);
+-- commit;
 -- CREATE SCHEMA pc;
 -- -- CREATE TABLE pc.phone (
 -- CREATE TABLE phone {

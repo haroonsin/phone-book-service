@@ -2,11 +2,12 @@ package ae.phonecheckers.phone;
 
 import java.time.LocalDateTime;
 
+import ae.phonecheckers.phone.api.model.BookingRequest;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -19,12 +20,21 @@ import lombok.Setter;
 @Table(name = "booking")
 public class Booking extends PanacheEntity {
 
-    // @ManyToOne(fetch = FetchType.LAZY)
-    // private Phone phone;
+    @OneToOne
+    public Inventory inventory;
 
-    // @Column(nullable = false)
-    // private String bookedBy;
+    @Column(nullable = false)
+    private String bookedBy;
 
-    // @Column(nullable = false)
-    // private LocalDateTime bookedAt;
+    @Column(nullable = false)
+    private LocalDateTime bookedAt;
+
+    public static Booking init(BookingRequest request, Inventory inventory) {
+
+        Booking newBooking = new Booking();
+        newBooking.setInventory(inventory);
+        newBooking.setBookedBy(request.requestor());
+        newBooking.setBookedAt(LocalDateTime.now());
+        return newBooking;
+    }
 }
