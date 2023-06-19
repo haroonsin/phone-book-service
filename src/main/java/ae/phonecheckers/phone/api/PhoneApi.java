@@ -6,6 +6,7 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
+import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponses;
 
@@ -54,11 +55,11 @@ public interface PhoneApi {
                         @APIResponse(responseCode = "409", description = "Unable to process request. Please check the status of phone and try again if required")
         })
         Response bookPhone(
-                        @Parameter(description = "The reference identifier for the phone", required = true, example = "{\n"
+                        @RequestBody(description = "The reference identifier for the phone", required = true, content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = BookingRequest.class, example = "{\n"
                                         + //
                                         "  \"phoneId\": \"2\",\n" + //
                                         "  \"requestor\": \"Ab\"\n" + //
-                                        "}", schema = @Schema(implementation = BookingRequest.class)) BookingRequest request);
+                                        "}"))) BookingRequest request);
 
         @DELETE
         @Path("/phone/book/{phoneIdentifier}")

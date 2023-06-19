@@ -21,16 +21,15 @@ import jakarta.transaction.Transactional;
 @ApplicationScoped
 public class DataLoader {
 
+    private static final Logger LOG = Logger.getLogger("DataLoader");
+
     @Inject
     FonoApi fonoApi;
 
     @Inject
     PhoneRepository phoneRepository;
 
-    private static final Logger LOG = Logger.getLogger("DataLoader");
-
     @Transactional
-    // void onStart(@Observes StartupEvent ev, Mutiny.SessionFactory sf) {
     void onStart(@Observes StartupEvent ev) {
 
         LOG.info("Preparing Fono API");
@@ -45,11 +44,10 @@ public class DataLoader {
                 .map(registerPhone)
                 .subscribe()
                 .with(
-                        phone -> LOG.infof("Phone persisted %s", phone.model),
+                        phone -> LOG.infof("Phone persisted %s", phone.getModel()),
                         err -> LOG.errorf(err, "Unable to finish registering phones. %s", err.getMessage()),
                         () -> printDataLoadSummary());
         LOG.info("Phone data store updated");
-        // Quarkus.waitForExit();
     }
 
     private void printDataLoadSummary() {
@@ -67,17 +65,6 @@ public class DataLoader {
             .map(phone -> updateInventory(phone))
             .orElseGet(() -> addPhoneAndUpdateInventory(spec));
 
-    // private Uni<Phone> registerPhone1(PhoneSpec spec) {
-    // return phoneRepository.findByModel(spec.modelName())
-    // // .map(phone -> updateInventory(phone))
-    // // .orElseGet(() -> addPhoneAndUpdateInventory(spec));
-    // // If phone model already existing in inventory, update item count
-    // .onItem().ifNotNull().transform(this::updateInventory)
-    // // Else add new phone to inventory
-    // .onItem().ifNull().continueWith(() -> addPhoneAndUpdateInventory(spec));
-
-    // }
-
     Phone addPhoneAndUpdateInventory(PhoneSpec spec) {
         Phone newPhone = Phone.init(spec);
         phoneRepository.persistAndFlush(newPhone);
@@ -89,26 +76,4 @@ public class DataLoader {
         phoneRepository.persistAndFlush(phone);
         return phone;
     }
-
-    // public Uni<Phone> addPhone(PhoneSpec phoneDetails) {
-
-    // return phoneRepository.findByModel(phoneDetails.modelName())
-    // // If phone model already existing in inventory, update item count
-    // .onItem().ifNotNull().transform(this::updateExistingPhoneToInventory)
-    // // Else add new phone to inventory
-    // .onItem().ifNull().continueWith(() -> addNewPhoneToInventory(phoneDetails))
-    // .await().indefinitely();
-    // }
-
-    // private Phone addNewPhoneToInventory(PhoneSpec newPhoneDetails) {
-    // Phone newPhone = Phone.init(newPhoneDetails);
-    // newPhone.persistAndFlush();
-    // return newPhone;
-    // }
-
-    // private Uni<Phone> updateExistingPhoneToInventory(Phone existingPhone) {
-    // existingPhone.setItemCount(existingPhone.getItemCount() + 1);
-    // return existingPhone.persistAndFlush();
-    // }
-
 }

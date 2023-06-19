@@ -63,10 +63,10 @@ public class PhoneApiDelegate implements PhoneApi {
     @Transactional
     @Override
     public Response bookPhone(BookingRequest request) {
+
         if (!StringUtils.isNumeric(request.getPhoneId())) {
             return Response.status(Status.BAD_REQUEST).build();
         }
-
         return inventoryRepository.findByIdOptional(Long.valueOf(request.getPhoneId()), LockModeType.PESSIMISTIC_READ)
                 .filter(inventory -> inventory.isAvailable())
                 .map(inventory -> this.registerBooking(inventory, request))
@@ -82,7 +82,7 @@ public class PhoneApiDelegate implements PhoneApi {
         }
         try {
             return inventoryRepository
-                    .findByIdOptional(Long.valueOf(phoneIdentifier), LockModeType.PESSIMISTIC_WRITE)
+                    .findByIdOptional(Long.valueOf(phoneIdentifier), LockModeType.PESSIMISTIC_READ)
                     .filter(inventory -> inventory.isBooked())
                     .map(inventory -> this.registerReturn(inventory))
                     .orElseGet(() -> Response.status(Status.NOT_ACCEPTABLE).build());
@@ -104,6 +104,7 @@ public class PhoneApiDelegate implements PhoneApi {
     }
 
     private Response registerReturn(Inventory inventory) {
+
         Booking currentBooking = inventory.booking;
         bookingRepository.delete(currentBooking);
         inventory.booking = null;
@@ -122,13 +123,15 @@ public class PhoneApiDelegate implements PhoneApi {
             bookedAt = booking.getBookedAt();
         }
         return Response
-                .ok(new PhoneVo(String.valueOf(inventory.id), phone.model, phone.extRef, inventory.isAvailable(),
+                .ok(new PhoneVo(String.valueOf(inventory.id), phone.getModel(), phone.getExtRef(),
+                        inventory.isAvailable(),
                         bookedAt,
                         bookedBy))
                 .build();
     }
 
     private Stream<PhoneVo> mapToPhoneVos(Phone phone) {
+
         return phone.inventory.stream().map(inventory -> {
             String bookedBy = null;
             LocalDateTime bookedAt = null;
@@ -137,7 +140,8 @@ public class PhoneApiDelegate implements PhoneApi {
                 bookedBy = booking.getBookedBy();
                 bookedAt = booking.getBookedAt();
             }
-            return new PhoneVo(String.valueOf(inventory.id), phone.model, phone.extRef, inventory.isAvailable(),
+            return new PhoneVo(String.valueOf(inventory.id), phone.getModel(), phone.getExtRef(),
+                    inventory.isAvailable(),
                     bookedAt,
                     bookedBy);
         });

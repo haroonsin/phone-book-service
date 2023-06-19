@@ -20,12 +20,12 @@ import lombok.Setter;
 @Setter
 @Table(name = "phone")
 public class Phone extends PanacheEntity {
-    public String model;
-    public String extRef;
-    public String technology;
-    public String g2Bands;
-    public String g3Bands;
-    public String g4Bands;
+    private String model;
+    private String extRef;
+    private String technology;
+    private String g2Bands;
+    private String g3Bands;
+    private String g4Bands;
 
     @OneToMany(mappedBy = "phone", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     public final List<Inventory> inventory = new ArrayList<>();

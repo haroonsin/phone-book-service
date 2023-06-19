@@ -5,5 +5,4 @@ import jakarta.enterprise.context.ApplicationScoped;
 
 @ApplicationScoped
 public class InventoryRepository implements PanacheRepository<Inventory> {
-
 }
