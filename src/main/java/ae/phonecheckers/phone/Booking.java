@@ -4,7 +4,6 @@ import java.time.LocalDateTime;
 
 import ae.phonecheckers.phone.api.model.BookingRequest;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
-import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.OneToOne;
@@ -33,7 +32,7 @@ public class Booking extends PanacheEntity {
 
         Booking newBooking = new Booking();
         newBooking.setInventory(inventory);
-        newBooking.setBookedBy(request.requestor());
+        newBooking.setBookedBy(request.getRequestor());
         newBooking.setBookedAt(LocalDateTime.now());
         return newBooking;
     }
