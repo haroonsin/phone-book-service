@@ -25,4 +25,8 @@ public class Inventory extends PanacheEntity {
     public boolean isAvailable() {
         return booking == null;
     }
+
+    public boolean isBooked() {
+        return booking != null;
+    }
 }

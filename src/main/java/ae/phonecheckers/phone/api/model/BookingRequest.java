@@ -11,5 +11,5 @@ import lombok.Setter;
 @NoArgsConstructor
 public class BookingRequest {
     private String phoneId;
-    private String requestor;
+    private String requestor = "Default";
 }

@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.commons.lang3.StringUtils;
+import org.jboss.logging.Logger;
 
 import ae.phonecheckers.phone.Booking;
 import ae.phonecheckers.phone.BookingRepository;
@@ -18,11 +19,14 @@ import ae.phonecheckers.phone.api.model.BookingResponse;
 import ae.phonecheckers.phone.api.model.PhoneVo;
 import jakarta.inject.Inject;
 import jakarta.persistence.LockModeType;
+import jakarta.persistence.OptimisticLockException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 
 public class PhoneApiDelegate implements PhoneApi {
+
+    private static final Logger LOG = Logger.getLogger(PhoneApiDelegate.class);
 
     @Inject
     PhoneRepository phoneRepository;
@@ -59,11 +63,52 @@ public class PhoneApiDelegate implements PhoneApi {
     @Transactional
     @Override
     public Response bookPhone(BookingRequest request) {
+        if (!StringUtils.isNumeric(request.getPhoneId())) {
+            return Response.status(Status.BAD_REQUEST).build();
+        }
 
         return inventoryRepository.findByIdOptional(Long.valueOf(request.getPhoneId()), LockModeType.PESSIMISTIC_READ)
                 .filter(inventory -> inventory.isAvailable())
                 .map(inventory -> this.registerBooking(inventory, request))
                 .orElseGet(() -> Response.status(Status.NOT_ACCEPTABLE).build());
+    }
+
+    @Transactional
+    @Override
+    public Response returnPhone(String phoneIdentifier) {
+
+        if (!StringUtils.isNumeric(phoneIdentifier)) {
+            return Response.status(Status.BAD_REQUEST).build();
+        }
+        try {
+            return inventoryRepository
+                    .findByIdOptional(Long.valueOf(phoneIdentifier), LockModeType.PESSIMISTIC_WRITE)
+                    .filter(inventory -> inventory.isBooked())
+                    .map(inventory -> this.registerReturn(inventory))
+                    .orElseGet(() -> Response.status(Status.NOT_ACCEPTABLE).build());
+        } catch (OptimisticLockException exception) {
+            LOG.errorf(exception, "Unable to process return. Phone id: %s. Reason: %s ", phoneIdentifier,
+                    exception.getMessage());
+            return Response.status(Status.CONFLICT).build();
+        }
+    }
+
+    private Response registerBooking(Inventory inventory, BookingRequest bookingRequest) {
+
+        Booking newBooking = Booking.init(bookingRequest, inventory);
+        bookingRepository.persistAndFlush(newBooking);
+        inventory.setBooking(newBooking);
+        inventoryRepository.persistAndFlush(inventory);
+        return Response.accepted(
+                new BookingResponse(bookingRequest.getPhoneId(), String.valueOf(newBooking.id))).build();
+    }
+
+    private Response registerReturn(Inventory inventory) {
+        Booking currentBooking = inventory.booking;
+        bookingRepository.delete(currentBooking);
+        inventory.booking = null;
+        inventoryRepository.persistAndFlush(inventory);
+        return Response.accepted().build();
     }
 
     private Response mapToPhoneVo(Inventory inventory) {
@@ -77,7 +122,8 @@ public class PhoneApiDelegate implements PhoneApi {
             bookedAt = booking.getBookedAt();
         }
         return Response
-                .ok(new PhoneVo(String.valueOf(phone.id), phone.model, phone.extRef, inventory.isAvailable(), bookedAt,
+                .ok(new PhoneVo(String.valueOf(inventory.id), phone.model, phone.extRef, inventory.isAvailable(),
+                        bookedAt,
                         bookedBy))
                 .build();
     }
@@ -91,19 +137,10 @@ public class PhoneApiDelegate implements PhoneApi {
                 bookedBy = booking.getBookedBy();
                 bookedAt = booking.getBookedAt();
             }
-            return new PhoneVo(String.valueOf(phone.id), phone.model, phone.extRef, inventory.isAvailable(), bookedAt,
+            return new PhoneVo(String.valueOf(inventory.id), phone.model, phone.extRef, inventory.isAvailable(),
+                    bookedAt,
                     bookedBy);
         });
-    }
-
-    private Response registerBooking(Inventory inventory, BookingRequest bookingRequest) {
-
-        Booking newBooking = Booking.init(bookingRequest, inventory);
-        bookingRepository.persistAndFlush(newBooking);
-        inventory.setBooking(newBooking);
-        inventoryRepository.persistAndFlush(inventory);
-        return Response.accepted(
-                new BookingResponse(bookingRequest.getPhoneId(), String.valueOf(newBooking.id))).build();
     }
 
 }

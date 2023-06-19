@@ -59,7 +59,7 @@ public class PhoneApiDelegateTest {
     public void shouldBookSpecifiedPhone() {
 
         String phoneId = "2";
-        String requestor = "A";
+        String requestor = "B";
         given()
                 .contentType(ContentType.JSON)
                 .body(new BookingRequest(phoneId, requestor))
@@ -74,7 +74,7 @@ public class PhoneApiDelegateTest {
     public void shouldFailWhenRebookingAlreadyBookedPhone() {
 
         String phoneId = "3";
-        String requestor = "B";
+        String requestor = "C";
         var bookingRequest = new BookingRequest(phoneId, requestor);
         given()
                 .contentType(ContentType.JSON)
@@ -91,7 +91,39 @@ public class PhoneApiDelegateTest {
                 .when().post("/v1/phone/book")
                 .then()
                 .statusCode(406);
+    }
 
+    @Test
+    public void shouldAllowBookingAndReturnOfSpecifiedPhone() {
+
+        String phoneId = "4";
+        String requestor = "D";
+        var bookingRequest = new BookingRequest(phoneId, requestor);
+        given()
+                .contentType(ContentType.JSON)
+                .body(bookingRequest)
+                .when().post("/v1/phone/book")
+                .then()
+                .statusCode(202)
+                .body("phoneId", is(phoneId))
+                .body("$", hasKey("bookingReference"));
+
+        given()
+                .contentType(ContentType.JSON)
+                .when().delete("/v1/phone/book/" + phoneId)
+                .then()
+                .statusCode(202);
+    }
+
+    @Test
+    public void shouldFailWhenPhoneIsReturnedBeforBooking() {
+
+        String phoneId = "4";
+        given()
+                .contentType(ContentType.JSON)
+                .when().delete("/v1/phone/book/" + phoneId)
+                .then()
+                .statusCode(406);
     }
 
 }
