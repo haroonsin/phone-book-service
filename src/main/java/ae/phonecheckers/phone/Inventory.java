@@ -3,11 +3,45 @@ package ae.phonecheckers.phone;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Entity;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.NamedQueries;
+import jakarta.persistence.NamedQuery;
 import jakarta.persistence.OneToOne;
 import lombok.Setter;
 
 @Entity
 @Setter
+@NamedQueries({
+        @NamedQuery(name = "Inventory.findAllPhones", query = """
+                SELECT
+                            inventory.id as id,
+                            phone.model as modelName,
+                            phone.extRef as extRef,
+                            booking.bookedBy as bookedBy,
+                            booking.bookedAt as bookingDate
+                        FROM
+                            Inventory inventory
+                        LEFT JOIN
+                            inventory.phone phone
+                        LEFT JOIN
+                            inventory.booking booking
+                """),
+        @NamedQuery(name = "Inventory.findPhone", query = """
+                SELECT
+                            inventory.id as id,
+                            phone.model as modelName,
+                            phone.extRef as extRef,
+                            booking.bookedBy as bookedBy,
+                            booking.bookedAt as bookingDate
+                        FROM
+                            Inventory inventory
+                        LEFT JOIN
+                            inventory.phone phone
+                        LEFT JOIN
+                            inventory.booking booking
+                        WHERE
+                            inventory.id = ?1
+                """)
+})
 public class Inventory extends PanacheEntity {
 
     @ManyToOne
