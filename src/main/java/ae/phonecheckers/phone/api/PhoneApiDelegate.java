@@ -3,21 +3,20 @@ package ae.phonecheckers.phone.api;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.apache.commons.lang3.StringUtils;
-import org.jboss.logging.Logger;
 
 import ae.phonecheckers.phone.Booking;
 import ae.phonecheckers.phone.BookingRepository;
 import ae.phonecheckers.phone.Inventory;
 import ae.phonecheckers.phone.InventoryRepository;
 import ae.phonecheckers.phone.Phone;
-import ae.phonecheckers.phone.PhoneRepository;
 import ae.phonecheckers.phone.api.model.BookingRequest;
 import ae.phonecheckers.phone.api.model.BookingResponse;
+import ae.phonecheckers.phone.api.model.InventoryVo;
 import ae.phonecheckers.phone.api.model.PhoneVo;
-import jakarta.inject.Inject;
+import io.quarkus.hibernate.orm.panache.PanacheQuery;
+import io.quarkus.logging.Log;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.transaction.Transactional;
@@ -26,27 +25,36 @@ import jakarta.ws.rs.core.Response.Status;
 
 public class PhoneApiDelegate implements PhoneApi {
 
-    private static final Logger LOG = Logger.getLogger(PhoneApiDelegate.class);
+    private InventoryRepository inventoryRepository;
+    private BookingRepository bookingRepository;
 
-    @Inject
-    PhoneRepository phoneRepository;
-
-    @Inject
-    InventoryRepository inventoryRepository;
-
-    @Inject
-    BookingRepository bookingRepository;
+    public PhoneApiDelegate(InventoryRepository inventoryRepository, BookingRepository bookingRepository) {
+        this.inventoryRepository = inventoryRepository;
+        this.bookingRepository = bookingRepository;
+    }
 
     @Override
     public Response getAllPhones() {
 
-        List<PhoneVo> phones = phoneRepository.findAll().stream()
-                .flatMap(phone -> this.mapToPhoneVos(phone))
-                .collect(Collectors.toList());
-        if (phones.size() == 0) {
+        PanacheQuery<InventoryVo> phones = Inventory.find("""
+                SELECT
+                    inventory.id as id,
+                    phone.model as modelName,
+                    phone.extRef as extRef,
+                    booking.bookedBy as bookedBy,
+                    booking.bookedAt as bookingDate
+                FROM
+                    Inventory inventory
+                LEFT JOIN
+                    inventory.phone phone
+                LEFT JOIN
+                    inventory.booking booking
+                """).project(InventoryVo.class);
+        List<InventoryVo> phoneVos = phones.stream().collect(Collectors.toList());
+        if (phoneVos.size() == 0) {
             return Response.noContent().build();
         } else {
-            return Response.ok(phones).build();
+            return Response.ok(phoneVos).build();
         }
     }
 
@@ -87,7 +95,7 @@ public class PhoneApiDelegate implements PhoneApi {
                     .map(inventory -> this.registerReturn(inventory))
                     .orElseGet(() -> Response.status(Status.NOT_ACCEPTABLE).build());
         } catch (OptimisticLockException exception) {
-            LOG.errorf(exception, "Unable to process return. Phone id: %s. Reason: %s ", phoneIdentifier,
+            Log.errorf(exception, "Unable to process return. Phone id: %s. Reason: %s ", phoneIdentifier,
                     exception.getMessage());
             return Response.status(Status.CONFLICT).build();
         }
@@ -128,23 +136,6 @@ public class PhoneApiDelegate implements PhoneApi {
                         bookedAt,
                         bookedBy))
                 .build();
-    }
-
-    private Stream<PhoneVo> mapToPhoneVos(Phone phone) {
-
-        return phone.inventory.stream().map(inventory -> {
-            String bookedBy = null;
-            LocalDateTime bookedAt = null;
-            if (!inventory.isAvailable()) {
-                Booking booking = inventory.booking;
-                bookedBy = booking.getBookedBy();
-                bookedAt = booking.getBookedAt();
-            }
-            return new PhoneVo(String.valueOf(inventory.id), phone.getModel(), phone.getExtRef(),
-                    inventory.isAvailable(),
-                    bookedAt,
-                    bookedBy);
-        });
     }
 
 }
