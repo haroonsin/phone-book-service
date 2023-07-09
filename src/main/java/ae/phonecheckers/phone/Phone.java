@@ -38,7 +38,6 @@ public class Phone extends PanacheEntity {
         newPhone.setG3Bands(spec.g3Bands());
         newPhone.setG4Bands(spec.g4Bands());
         newPhone.setTechnology(spec.technology());
-        newPhone.getInventory().add(Inventory.init(newPhone));
 
         return newPhone;
     }
