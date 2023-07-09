@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import ae.phonecheckers.phone.Inventory;
 import io.quarkus.runtime.annotations.RegisterForReflection;
+import jakarta.persistence.LockModeType;
 
 @RegisterForReflection
 public record InventoryVo(
@@ -35,5 +36,13 @@ public record InventoryVo(
 
         return Inventory.find("#Inventory.findPhone", phoneIdentifier)
                 .project(InventoryVo.class).singleResultOptional();
+    }
+
+	public static Optional<InventoryVo> find(Long phoneIdentifier, LockModeType lockMode) {
+
+        return Inventory.find("#Inventory.findPhone", phoneIdentifier)
+                .project(InventoryVo.class)
+				.withLock(lockMode)
+				.singleResultOptional();
     }
 }

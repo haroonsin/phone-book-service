@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import ae.phonecheckers.phone.api.model.BookingRequest;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.OneToOne;
@@ -19,21 +20,21 @@ import lombok.Setter;
 @Table(name = "booking")
 public class Booking extends PanacheEntity {
 
-    @OneToOne
-    public Inventory inventory;
+	@OneToOne(mappedBy = "booking", cascade = CascadeType.PERSIST)
+	public Inventory inventory;
 
-    @Column(nullable = false)
-    private String bookedBy;
+	@Column(nullable = false)
+	private String bookedBy;
 
-    @Column(nullable = false)
-    private LocalDateTime bookedAt;
+	@Column(nullable = false)
+	private LocalDateTime bookedAt;
 
-    public static Booking init(BookingRequest request, Inventory inventory) {
+	public static Booking init(BookingRequest request, Inventory inventory) {
 
-        Booking newBooking = new Booking();
-        newBooking.setInventory(inventory);
-        newBooking.setBookedBy(request.getRequestor());
-        newBooking.setBookedAt(LocalDateTime.now());
-        return newBooking;
-    }
+		Booking newBooking = new Booking();
+		newBooking.setInventory(inventory);
+		newBooking.setBookedBy(request.getRequestor());
+		newBooking.setBookedAt(LocalDateTime.now());
+		return newBooking;
+	}
 }

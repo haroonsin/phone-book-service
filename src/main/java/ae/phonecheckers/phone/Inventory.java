@@ -47,7 +47,7 @@ public class Inventory extends PanacheEntity {
     @ManyToOne
     public Phone phone;
 
-    @OneToOne(mappedBy = "inventory")
+    @OneToOne
     public Booking booking;
 
     public static Inventory init(Phone newPhone) {

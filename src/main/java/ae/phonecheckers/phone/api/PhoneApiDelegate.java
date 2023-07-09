@@ -48,7 +48,7 @@ public class PhoneApiDelegate implements PhoneApi {
 	public Response bookPhone(BookingRequest request) {
 		return inventoryRepository.findByIdOptional(Long.valueOf(request.getPhoneId()), LockModeType.PESSIMISTIC_READ)
 				.filter(inventory -> inventory.isAvailable())
-				.map(inventory -> this.registerBooking(inventory, request))
+				.map(inventory -> registerBooking(inventory, request))
 				.orElseGet(() -> Response.status(Status.NOT_ACCEPTABLE).build());
 	}
 
@@ -71,19 +71,17 @@ public class PhoneApiDelegate implements PhoneApi {
 	private Response registerBooking(Inventory inventory, BookingRequest bookingRequest) {
 
 		Booking newBooking = Booking.init(bookingRequest, inventory);
-		bookingRepository.persistAndFlush(newBooking);
 		inventory.setBooking(newBooking);
-		inventoryRepository.persistAndFlush(inventory);
-		return Response.accepted(
-				new BookingResponse(bookingRequest.getPhoneId(), String.valueOf(newBooking.id))).build();
+		newBooking.persistAndFlush();
+		return Response.accepted(new BookingResponse(bookingRequest.getPhoneId(), String.valueOf(newBooking.id)))
+				.build();
 	}
 
 	private Response registerReturn(Inventory inventory) {
 
 		Booking currentBooking = inventory.booking;
-		bookingRepository.delete(currentBooking);
 		inventory.booking = null;
-		inventoryRepository.persistAndFlush(inventory);
+		currentBooking.delete();
 		return Response.accepted().build();
 	}
 }
