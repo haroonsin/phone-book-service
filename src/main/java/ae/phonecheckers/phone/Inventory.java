@@ -1,7 +1,11 @@
 package ae.phonecheckers.phone;
 
+import java.util.Optional;
+
+import ae.phonecheckers.phone.api.model.InventoryVo;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Entity;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.NamedQueries;
 import jakarta.persistence.NamedQuery;
@@ -40,7 +44,20 @@ import lombok.Setter;
                             inventory.booking booking
                         WHERE
                             inventory.id = ?1
-                """)
+                """),
+		@NamedQuery(name = "Inventory.findAvailablePhoneByModelName", query = """
+				SELECT
+				            inventory
+				        FROM
+				            Inventory inventory
+				        LEFT JOIN
+				            inventory.phone phone
+				        LEFT JOIN
+				            inventory.booking booking
+				        WHERE
+				            inventory.phone.model = ?1 AND
+							inventory.booking is null
+				""")
 })
 public class Inventory extends PanacheEntity {
 
@@ -63,4 +80,16 @@ public class Inventory extends PanacheEntity {
     public boolean isBooked() {
         return booking != null;
     }
+
+	public static Optional<Inventory> findByModelNameOptional(String modelName, LockModeType lockMode) {
+		return find("phone.model = ?1 and booking is null", modelName)
+				.withLock(lockMode)
+				.firstResultOptional();
+	}
+
+	public static Optional<Inventory> findByModel(String modelName, LockModeType lockMode) {
+		return Inventory.find("#Inventory.findAvailablePhoneByModelName", modelName)
+				.withLock(lockMode)
+				.firstResultOptional();
+	}
 }

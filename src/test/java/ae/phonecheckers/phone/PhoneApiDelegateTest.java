@@ -8,6 +8,7 @@ import static org.hamcrest.Matchers.hasSize;
 import org.junit.jupiter.api.Test;
 
 import ae.phonecheckers.phone.api.model.BookingRequest;
+import ae.phonecheckers.phone.api.model.BookingWithModelRequest;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 
@@ -123,5 +124,20 @@ public class PhoneApiDelegateTest {
                                 .then()
                                 .statusCode(406);
         }
+
+		@Test
+		public void shouldAllowBookingPhoneUsingModelName() {
+			String phoneModelName = "Samsung Galaxy S8";
+                String requestor = "Mikis";
+                var bookingRequest = new BookingWithModelRequest(phoneModelName, requestor);
+                given()
+                                .contentType(ContentType.JSON)
+                                .body(bookingRequest)
+                                .when().post("/v1/phone/book/model")
+                                .then()
+                                .statusCode(202)
+                                // .body("phoneId", is(phoneId))
+                                .body("$", hasKey("bookingReference"));
+		}
 
 }
