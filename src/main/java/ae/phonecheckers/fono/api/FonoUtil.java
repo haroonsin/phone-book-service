@@ -1,10 +1,11 @@
 package ae.phonecheckers.fono.api;
 
+import static java.util.stream.Collectors.toMap;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import ae.phonecheckers.fono.api.model.PhoneSpec;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -21,13 +22,13 @@ public class FonoUtil {
                                                 TECH.get(random.nextInt(3)), G2.get(random.nextInt(3)),
                                                 G3.get(random.nextInt(3)),
                                                 G4.get(random.nextInt(3))))
-                                .collect(Collectors.toMap(spec -> spec.modelIdentifier(), Function.identity()));
+                                .collect(toMap(spec -> spec.modelIdentifier(), Function.identity()));
         }
 
         private Random random = new Random();
 
         PhoneSpec getDefaultSpec(String deviceName) {
-                return new PhoneSpec(deviceName, null, null, null, null, null);
+                return new PhoneSpec(deviceName);
         }
 
         private Function<String, String> generateIdentifier = (phoneName) -> phoneName.replaceAll("\\s", "")
@@ -40,12 +41,12 @@ public class FonoUtil {
 
         private final List<String> G2 = List.of(
                         "GSM 850 / 900 / 1800 / 1900 - SIM 1 & SIM 2 (dual-SIM model only)",
-                        "GSM 850 / 900 / 1800 / 1900 - SIM 1 & SIM 2 (dual-SIM model only)",
+                        "GSM 850 / 900 / 1800 - SIM 1 & SIM 2 (dual-SIM model only)",
                         "GSM 850 / 900");
 
         private final List<String> G3 = List.of(
                         "HSDPA 850 / 900 / 1700(AWS) / 1900 / 2100",
-                        "HSDPA 850 / 900 / 1700(AWS) / 1900 / 2100",
+                        "HSDPA 850 / 900 / 1700(AWS) / 1900",
                         "HSDPA 800 / 850 / 900 / 1700(AWS) / 1800 / 1900 / 2100");
 
         private final List<String> G4 = List.of(

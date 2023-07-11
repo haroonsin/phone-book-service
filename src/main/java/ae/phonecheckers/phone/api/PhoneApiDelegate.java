@@ -1,23 +1,15 @@
 package ae.phonecheckers.phone.api;
 
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import org.apache.commons.lang3.StringUtils;
-import org.jboss.logging.Logger;
 
 import ae.phonecheckers.phone.Booking;
 import ae.phonecheckers.phone.BookingRepository;
 import ae.phonecheckers.phone.Inventory;
 import ae.phonecheckers.phone.InventoryRepository;
-import ae.phonecheckers.phone.Phone;
-import ae.phonecheckers.phone.PhoneRepository;
 import ae.phonecheckers.phone.api.model.BookingRequest;
 import ae.phonecheckers.phone.api.model.BookingResponse;
-import ae.phonecheckers.phone.api.model.PhoneVo;
-import jakarta.inject.Inject;
+import ae.phonecheckers.phone.api.model.InventoryVo;
+import io.quarkus.logging.Log;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.transaction.Transactional;
@@ -26,125 +18,70 @@ import jakarta.ws.rs.core.Response.Status;
 
 public class PhoneApiDelegate implements PhoneApi {
 
-    private static final Logger LOG = Logger.getLogger(PhoneApiDelegate.class);
+	private InventoryRepository inventoryRepository;
+	private BookingRepository bookingRepository;
 
-    @Inject
-    PhoneRepository phoneRepository;
+	public PhoneApiDelegate(InventoryRepository inventoryRepository, BookingRepository bookingRepository) {
+		this.inventoryRepository = inventoryRepository;
+		this.bookingRepository = bookingRepository;
+	}
 
-    @Inject
-    InventoryRepository inventoryRepository;
+	@Override
+	public Response getAllPhones() {
+		List<InventoryVo> phoneVos = InventoryVo.findAll();
+		if (phoneVos.size() == 0) {
+			return Response.noContent().build();
+		} else {
+			return Response.ok(phoneVos).build();
+		}
+	}
 
-    @Inject
-    BookingRepository bookingRepository;
+	@Override
+	public Response getPhone(String phoneIdentifier) {
+		return InventoryVo.find(Long.valueOf(phoneIdentifier))
+				.map(phone -> Response.ok(phone).build())
+				.orElseGet(() -> Response.status(Status.NOT_FOUND).build());
+	}
 
-    @Override
-    public Response getAllPhones() {
+	@Transactional
+	@Override
+	public Response bookPhone(BookingRequest request) {
+		return inventoryRepository.findByIdOptional(Long.valueOf(request.getPhoneId()), LockModeType.PESSIMISTIC_READ)
+				.filter(inventory -> inventory.isAvailable())
+				.map(inventory -> registerBooking(inventory, request))
+				.orElseGet(() -> Response.status(Status.NOT_ACCEPTABLE).build());
+	}
 
-        List<PhoneVo> phones = phoneRepository.findAll().stream()
-                .flatMap(phone -> this.mapToPhoneVos(phone))
-                .collect(Collectors.toList());
-        if (phones.size() == 0) {
-            return Response.noContent().build();
-        } else {
-            return Response.ok(phones).build();
-        }
-    }
+	@Transactional
+	@Override
+	public Response returnPhone(String phoneIdentifier) {
+		try {
+			return inventoryRepository
+					.findByIdOptional(Long.valueOf(phoneIdentifier), LockModeType.PESSIMISTIC_READ)
+					.filter(inventory -> inventory.isBooked())
+					.map(inventory -> this.registerReturn(inventory))
+					.orElseGet(() -> Response.status(Status.NOT_ACCEPTABLE).build());
+		} catch (OptimisticLockException exception) {
+			Log.errorf(exception, "Unable to process return. Phone id: %s. Reason: %s ", phoneIdentifier,
+					exception.getMessage());
+			return Response.status(Status.CONFLICT).build();
+		}
+	}
 
-    @Override
-    public Response getPhone(String phoneIdentifier) {
-        if (!StringUtils.isNumeric(phoneIdentifier)) {
-            return Response.status(Status.BAD_REQUEST).build();
-        }
-        return inventoryRepository.findByIdOptional(Long.valueOf(phoneIdentifier))
-                .map(this::mapToPhoneVo)
-                .orElseGet(() -> Response.status(Status.NOT_FOUND).build());
-    }
+	private Response registerBooking(Inventory inventory, BookingRequest bookingRequest) {
 
-    @Transactional
-    @Override
-    public Response bookPhone(BookingRequest request) {
+		Booking newBooking = Booking.init(bookingRequest, inventory);
+		inventory.setBooking(newBooking);
+		newBooking.persistAndFlush();
+		return Response.accepted(new BookingResponse(bookingRequest.getPhoneId(), String.valueOf(newBooking.id)))
+				.build();
+	}
 
-        if (!StringUtils.isNumeric(request.getPhoneId())) {
-            return Response.status(Status.BAD_REQUEST).build();
-        }
-        return inventoryRepository.findByIdOptional(Long.valueOf(request.getPhoneId()), LockModeType.PESSIMISTIC_READ)
-                .filter(inventory -> inventory.isAvailable())
-                .map(inventory -> this.registerBooking(inventory, request))
-                .orElseGet(() -> Response.status(Status.NOT_ACCEPTABLE).build());
-    }
+	private Response registerReturn(Inventory inventory) {
 
-    @Transactional
-    @Override
-    public Response returnPhone(String phoneIdentifier) {
-
-        if (!StringUtils.isNumeric(phoneIdentifier)) {
-            return Response.status(Status.BAD_REQUEST).build();
-        }
-        try {
-            return inventoryRepository
-                    .findByIdOptional(Long.valueOf(phoneIdentifier), LockModeType.PESSIMISTIC_READ)
-                    .filter(inventory -> inventory.isBooked())
-                    .map(inventory -> this.registerReturn(inventory))
-                    .orElseGet(() -> Response.status(Status.NOT_ACCEPTABLE).build());
-        } catch (OptimisticLockException exception) {
-            LOG.errorf(exception, "Unable to process return. Phone id: %s. Reason: %s ", phoneIdentifier,
-                    exception.getMessage());
-            return Response.status(Status.CONFLICT).build();
-        }
-    }
-
-    private Response registerBooking(Inventory inventory, BookingRequest bookingRequest) {
-
-        Booking newBooking = Booking.init(bookingRequest, inventory);
-        bookingRepository.persistAndFlush(newBooking);
-        inventory.setBooking(newBooking);
-        inventoryRepository.persistAndFlush(inventory);
-        return Response.accepted(
-                new BookingResponse(bookingRequest.getPhoneId(), String.valueOf(newBooking.id))).build();
-    }
-
-    private Response registerReturn(Inventory inventory) {
-
-        Booking currentBooking = inventory.booking;
-        bookingRepository.delete(currentBooking);
-        inventory.booking = null;
-        inventoryRepository.persistAndFlush(inventory);
-        return Response.accepted().build();
-    }
-
-    private Response mapToPhoneVo(Inventory inventory) {
-
-        Phone phone = inventory.phone;
-        String bookedBy = null;
-        LocalDateTime bookedAt = null;
-        if (!inventory.isAvailable()) {
-            Booking booking = inventory.booking;
-            bookedBy = booking.getBookedBy();
-            bookedAt = booking.getBookedAt();
-        }
-        return Response
-                .ok(new PhoneVo(String.valueOf(inventory.id), phone.getModel(), phone.getExtRef(),
-                        inventory.isAvailable(),
-                        bookedAt,
-                        bookedBy))
-                .build();
-    }
-
-    private Stream<PhoneVo> mapToPhoneVos(Phone phone) {
-
-        return phone.inventory.stream().map(inventory -> {
-            String bookedBy = null;
-            LocalDateTime bookedAt = null;
-            if (!inventory.isAvailable()) {
-                Booking booking = inventory.booking;
-                bookedBy = booking.getBookedBy();
-                bookedAt = booking.getBookedAt();
-            }
-            return new PhoneVo(String.valueOf(inventory.id), phone.getModel(), phone.getExtRef(),
-                    inventory.isAvailable(),
-                    bookedAt,
-                    bookedBy);
-        });
-    }
-
+		Booking currentBooking = inventory.booking;
+		inventory.booking = null;
+		currentBooking.delete();
+		return Response.accepted().build();
+	}
 }

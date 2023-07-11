@@ -32,7 +32,7 @@ public class PhoneApiDelegateTest {
                                 .statusCode(200)
                                 .body("$", hasKey("modelName"))
                                 .body("isAvailable", is(true))
-                                .body("id", is(phoneId));
+                                .body("id", is(Integer.valueOf(phoneId)));
         }
 
         @Test

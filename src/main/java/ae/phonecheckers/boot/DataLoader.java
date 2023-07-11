@@ -1,16 +1,19 @@
 package ae.phonecheckers.boot;
 
-import java.util.List;
-import java.util.function.Function;
+import static java.util.stream.Collectors.counting;
+import static java.util.stream.Collectors.groupingBy;
 
-import org.jboss.logging.Logger;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.LongStream;
 
 import ae.phonecheckers.fono.api.FonoApi;
 import ae.phonecheckers.fono.api.model.PhoneSpec;
 import ae.phonecheckers.phone.Inventory;
 import ae.phonecheckers.phone.Phone;
-import ae.phonecheckers.phone.PhoneRepository;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
+import io.quarkus.logging.Log;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.mutiny.Multi;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -21,59 +24,52 @@ import jakarta.transaction.Transactional;
 @ApplicationScoped
 public class DataLoader {
 
-    private static final Logger LOG = Logger.getLogger("DataLoader");
+	@Inject
+	private FonoApi fonoApi;
 
-    @Inject
-    FonoApi fonoApi;
+	private Map<String, Long> phones = List.of(
+			"Samsung Galaxy S9", "Samsung Galaxy S8", "Motorola Nexus 6",
+			"Oneplus 9", "Samsung Galaxy S8", "Apple iPhone 13",
+			"Apple iPhone 12", "Apple iPhone 11", "iPhone X", "Nokia 3310")
+			.stream()
+			.collect(groupingBy(Function.identity(), counting()));
 
-    @Inject
-    PhoneRepository phoneRepository;
+	@Transactional
+	void onStart(@Observes StartupEvent ev) {
 
-    @Transactional
-    void onStart(@Observes StartupEvent ev) {
+		Log.infov("Phone data store prep: {0}", phones);
 
-        LOG.info("Preparing Fono API");
-        List<String> phones = List.of("Samsung Galaxy S9", "Samsung Galaxy S8",
-                "Motorola Nexus 6", "Oneplus 9", "Samsung Galaxy S8",
-                "Apple iPhone 13", "Apple iPhone 12", "Apple iPhone 11", "iPhone X", "Nokia 3310");
+		Multi.createFrom().iterable(phones.keySet())
+				// .emitOn(Infrastructure.getDefaultWorkerPool())
+				.map(getIdentifier)
+				.map(fonoApi::getPhoneSpec)
+				.map(registerPhone)
+				.subscribe()
+				.with(
+						phone -> Log.infof("Phone persisted %s", phone.getModel()),
+						err -> Log.errorf(err, "Unable to finish registering phones. %s", err.getMessage()),
+						() -> printDataLoadSummary());
+		Log.info("Phone data store updated");
+	}
 
-        Multi.createFrom().iterable(phones)
-                // .emitOn(Infrastructure.getDefaultWorkerPool())
-                .map(getIdentifier)
-                .map(fonoApi::getPhoneSpec)
-                .map(registerPhone)
-                .subscribe()
-                .with(
-                        phone -> LOG.infof("Phone persisted %s", phone.getModel()),
-                        err -> LOG.errorf(err, "Unable to finish registering phones. %s", err.getMessage()),
-                        () -> printDataLoadSummary());
-        LOG.info("Phone data store updated");
-    }
+	private void printDataLoadSummary() {
+		PanacheQuery<Phone> findAll = Phone.findAll();
+		Log.infof("%n%nTotal phones saved: %s. %nTotal Inventory size: %s%n",
+				findAll.count(),
+				findAll.stream()
+						.mapToInt(phone -> phone.inventory.size())
+						.sum());
+	}
 
-    private void printDataLoadSummary() {
-        PanacheQuery<Phone> findAll = phoneRepository.findAll();
-        LOG.infof("%n%nTotal phones saved: %s. %nTotal Inventory size: %s%n",
-                findAll.count(),
-                findAll.stream()
-                        .mapToInt(phone -> phone.inventory.size())
-                        .sum());
-    }
+	private Function<String, String> getIdentifier = (phoneName) -> phoneName.replaceAll("\\s", "").toLowerCase();
 
-    private Function<String, String> getIdentifier = (phoneName) -> phoneName.replaceAll("\\s", "").toLowerCase();
+	private Function<String, Long> getInventoryCountForModel = (modelName) -> phones.get(modelName);
 
-    private Function<PhoneSpec, Phone> registerPhone = (spec) -> phoneRepository.findByModel(spec.modelName())
-            .map(phone -> updateInventory(phone))
-            .orElseGet(() -> addPhoneAndUpdateInventory(spec));
-
-    Phone addPhoneAndUpdateInventory(PhoneSpec spec) {
-        Phone newPhone = Phone.init(spec);
-        phoneRepository.persistAndFlush(newPhone);
-        return newPhone;
-    }
-
-    Phone updateInventory(Phone phone) {
-        phone.inventory.add(Inventory.init(phone));
-        phoneRepository.persistAndFlush(phone);
-        return phone;
-    }
+	private Function<PhoneSpec, Phone> registerPhone = (spec) -> {
+		Phone newPhone = Phone.init(spec);
+		LongStream.range(0, getInventoryCountForModel.apply(spec.modelName()))
+				.forEach(_ignore -> newPhone.inventory.add(Inventory.init(newPhone)));
+		newPhone.persistAndFlush();
+		return newPhone;
+	};
 }
