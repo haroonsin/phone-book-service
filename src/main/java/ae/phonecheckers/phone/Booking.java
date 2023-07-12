@@ -29,11 +29,11 @@ public class Booking extends PanacheEntity {
 	@Column(nullable = false)
 	private LocalDateTime bookedAt;
 
-	public static Booking init(BookingRequest request, Inventory inventory) {
+	public static Booking init(String requestor, Inventory inventory) {
 
 		Booking newBooking = new Booking();
 		newBooking.setInventory(inventory);
-		newBooking.setBookedBy(request.getRequestor());
+		newBooking.setBookedBy(requestor);
 		newBooking.setBookedAt(LocalDateTime.now());
 		return newBooking;
 	}

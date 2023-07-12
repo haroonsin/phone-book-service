@@ -8,6 +8,7 @@ import ae.phonecheckers.phone.Inventory;
 import ae.phonecheckers.phone.InventoryRepository;
 import ae.phonecheckers.phone.api.model.BookingRequest;
 import ae.phonecheckers.phone.api.model.BookingResponse;
+import ae.phonecheckers.phone.api.model.BookingWithModelRequest;
 import ae.phonecheckers.phone.api.model.InventoryVo;
 import io.quarkus.logging.Log;
 import jakarta.persistence.LockModeType;
@@ -46,9 +47,18 @@ public class PhoneApiDelegate implements PhoneApi {
 	@Transactional
 	@Override
 	public Response bookPhone(BookingRequest request) {
-		return inventoryRepository.findByIdOptional(Long.valueOf(request.getPhoneId()), LockModeType.PESSIMISTIC_READ)
+		return inventoryRepository.findByIdOptional(Long.valueOf(request.phoneId()), LockModeType.PESSIMISTIC_READ)
 				.filter(inventory -> inventory.isAvailable())
-				.map(inventory -> registerBooking(inventory, request))
+				.map(inventory -> registerBooking(request.requestor(), inventory))
+				.orElseGet(() -> Response.status(Status.NOT_ACCEPTABLE).build());
+	}
+
+	@Transactional
+	@Override
+	public Response bookPhoneByModelName(BookingWithModelRequest request) {
+		return Inventory.findByModelNameOptional(request.modelName(), LockModeType.PESSIMISTIC_READ)
+				.filter(inventory -> inventory.isAvailable())
+				.map(inventory -> registerBooking(request.requestor(), inventory))
 				.orElseGet(() -> Response.status(Status.NOT_ACCEPTABLE).build());
 	}
 
@@ -68,12 +78,12 @@ public class PhoneApiDelegate implements PhoneApi {
 		}
 	}
 
-	private Response registerBooking(Inventory inventory, BookingRequest bookingRequest) {
+	private Response registerBooking(String requestor, Inventory inventory) {
 
-		Booking newBooking = Booking.init(bookingRequest, inventory);
+		Booking newBooking = Booking.init(requestor, inventory);
 		inventory.setBooking(newBooking);
 		newBooking.persistAndFlush();
-		return Response.accepted(new BookingResponse(bookingRequest.getPhoneId(), String.valueOf(newBooking.id)))
+		return Response.accepted(new BookingResponse(String.valueOf(inventory.phone.id), String.valueOf(newBooking.id)))
 				.build();
 	}
 

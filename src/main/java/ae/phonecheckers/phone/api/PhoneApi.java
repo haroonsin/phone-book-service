@@ -11,6 +11,7 @@ import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponses;
 
 import ae.phonecheckers.phone.api.model.BookingRequest;
+import ae.phonecheckers.phone.api.model.BookingWithModelRequest;
 import ae.phonecheckers.phone.api.model.InventoryVo;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -63,6 +64,22 @@ public interface PhoneApi {
 					"  \"phoneId\": \"2\",\n" + //
 					"  \"requestor\": \"Ab\"\n" + //
 					"}"))) @Valid BookingRequest request);
+
+	@POST
+	@Path("/phone/book/model")
+	@Operation(operationId = "Request phone booking using model name", summary = "Attempts to book a phone using modelname if available.", description = "Books the phone if available")
+	@APIResponses(value = {
+			@APIResponse(responseCode = "202", description = "Succesful response"),
+			@APIResponse(responseCode = "400", description = "Invalid input. Try giving number under 10 for phoneId"),
+			@APIResponse(responseCode = "406", description = "Invalid phone id. Try giving number under 10"),
+			@APIResponse(responseCode = "409", description = "Unable to process request. Please check the status of phone and try again if required")
+	})
+	Response bookPhoneByModelName(
+			@RequestBody(description = "The model name for the phone", required = true, content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = BookingWithModelRequest.class, example = "{\n"
+					+ //
+					"  \"modelName\": \"Samsung Galaxy S8\",\n" + //
+					"  \"requestor\": \"Ab\"\n" + //
+					"}"))) @Valid BookingWithModelRequest request);
 
 	@DELETE
 	@Path("/phone/book/{phoneIdentifier}")
